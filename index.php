@@ -12,7 +12,7 @@
     <h2 class="mb-4">Lake Temperatures</h2>
 
     <?php
-    $conn = mysqli_connect("pharmcon.mysql.tools", "pharmcon_lake", "9Ca89(nd_J", "pharmcon_lake");
+    $conn = mysqli_connect("pharmcon.mysql.tools", "pharmcon_lake", "fakepass4", "pharmcon_lake");
 
     if ($conn->connect_error) {
         die("Connection failed: " . $conn->connect_error);
@@ -22,7 +22,7 @@
     $results_per_page = 10;
 
     // Find out the number of results stored in the database
-    $result = $conn->query("SELECT COUNT(DISTINCT lake, link) AS total FROM bavarianlakes WHERE temp > 0 AND (NOW() - timestamp) / 100 < 100");
+    $result = $conn->query("SELECT COUNT(DISTINCT lake, link) AS total FROM bavarianlakes WHERE timestamp = (SELECT MAX(timestamp) from bavarianlakes)");
     $row = $result->fetch_assoc();
     $total_results = $row['total'];
 
@@ -42,10 +42,8 @@
 
     // Retrieve selected results from database and display them on page
     $sql = "SELECT * FROM (
-                SELECT DISTINCT UPPER(lake) AS LAKE, link AS LINK, MAX(temp) AS CURRENT_TEMP
-                FROM bavarianlakes
-                WHERE temp > 0 AND (NOW() - timestamp) / 100 < 100
-                GROUP BY 1, 2
+                SELECT UPPER(lake) as LAKE, link as LINK, temp as CURRENT_TEMP, timestamp as DATETIME 
+				FROM bavarianlakes WHERE timestamp = (SELECT MAX(timestamp) from bavarianlakes)
                 ORDER BY timestamp DESC
             ) abc
             ORDER BY abc.CURRENT_TEMP DESC
@@ -59,6 +57,7 @@
             <tr>
                 <th>LAKE</th>
                 <th>CURRENT TEMP</th>
+				<th>DATETIME</th>
             </tr>
         </thead>
         <tbody>
@@ -68,6 +67,7 @@
                 echo '<tr>';
                 echo '<td><a href="' . $row["LINK"] . '">' . $row["LAKE"] . '</a></td>';
                 echo '<td>' . $row["CURRENT_TEMP"] . '</td>';
+				echo '<td>' . $row["DATETIME"] . '</td>';
                 echo '</tr>';
             }
         } else {
