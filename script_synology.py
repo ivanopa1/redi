@@ -110,4 +110,5 @@ print('stmt = {stmt}')
 # Execute the statement
 with engine.connect() as conn:
     conn.execute(stmt)
+    conn.commit()	
 conn.close()
