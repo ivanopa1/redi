@@ -50,7 +50,6 @@ soup = BeautifulSoup(page, features="lxml")
 page.close()
 
 #regexp pattern to find needed Tempreature (first find will do)
-# pattern = r'<span[^>]*>(?:<span[^>]*>)?(?P<temperature>\d+)\s*?C<\/span>(?:<\/span>)?'  not working PATTERN
 pattern = r'<span[^>]*>(?:<span[^>]*>)?(?P<temperature>\d+)\s*°C<\/span>(?:<\/span>)?'
 
 #find all links on the initial page
