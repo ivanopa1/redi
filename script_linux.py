@@ -4,16 +4,23 @@ import requests
 from bs4 import BeautifulSoup
 from time import sleep
 import re
+import json
 from tqdm import tqdm #progress bar
 from sqlalchemy import create_engine, Table, Column, Integer, String, MetaData
 
-username = 'pharmcon_lake'
-password = '9Ca89(nd_J'
-host = 'pharmcon.mysql.tools'
-port = '3306'
-database = 'pharmcon_lake'
-
+# Read Database configuration from the JSON config file
+with open("config.json", "r") as jsonfile:
+    connect_keys = json.load(jsonfile)
+    
+username=connect_keys['username']
+password=connect_keys['password']
+host=connect_keys['host']
+port=connect_keys['port']
+database=connect_keys['database']
+                
 start_time = time.time()
+
+# staring the base Page for serch
 page = requests.get('https://www.wassertemperatur.org/tegernsee/')
 soup = BeautifulSoup(page.text, features="lxml")
 
@@ -21,7 +28,7 @@ soup = BeautifulSoup(page.text, features="lxml")
 pattern = r'<span[^>]*>(?:<span[^>]*>)?(?P<temperature>\d+)\s*°C<\/span>(?:<\/span>)?'
 
 #find all links on the initial page
-links = soup.find_all("a") # Find all elements with the tag <a>
+links = soup.find_all("a") # Find all elements with the tag <a> = all links
 SeeLinks = []
 
 for link in links:
@@ -29,11 +36,65 @@ for link in links:
         #print("Link:", link.get("href"), "Text:", link.string)
         SeeLinks.append([link.get("href"), link.string.replace('Wassertemperatur ' , '')])
 
-#print('\n')
-#print(SeeLinks)
-print("Total number of Lake-links is:" , len(SeeLinks))
+print("Total number of base Lake-links is:" , len(SeeLinks))
 
-for i in tqdm(range(0,len(SeeLinks)-1)):
+
+#####################################
+# enriching part of the links (start)
+#####################################
+
+for i in tqdm(range(0,len(SeeLinks))):
+    link = SeeLinks[i][0]  # link to the page of the specific lake
+    page = requests.get(link)
+    soup = BeautifulSoup(page.text, features="lxml")
+    links = soup.find_all("a")  # Find all elements with the tag <a>
+    
+    spans = soup.find_all('span')
+    s = 0  # we need to find only first itteractin
+    for span in spans:
+        match = re.search(pattern, str(span))  # searching for the Tempreature
+        if match and s == 0:
+            temperature = match.group('temperature')
+            SeeLinks[i].append(temperature)   # adding found tempreature (if any)
+            s += 1  
+        
+    for link in links:
+        found = any(link.get("href") == item[0] for item in SeeLinks) # found == true if link is present
+        if "Wassertemperatur" in str(link.string) and str(link.string)[-3:].upper() == 'SEE' and not found:
+            #print(f'We have found a new link! {link.get("href")}, Text:, {link.string}')
+            
+            # here we need to have tempreature finding cycle
+            new_lake_name = link.string.replace('Wassertemperatur ', '')
+            new_lake_link = link.get("href")
+            
+            page2 = requests.get(new_lake_link)
+            soup2 = BeautifulSoup(page2.text, features="lxml")
+            new_spans = soup2.find_all('span')            
+            
+            s = 0  # we need to find only first itteractin
+            for span in new_spans:
+                match = re.search(pattern, str(span))  # searching for the Tempreature
+                if match and s == 0:
+                    temperature = match.group('temperature')
+                    new_lake_temp = temperature   
+                    s += 1                          
+                                    
+            # SeeLinks.append([link.get("href"), link.string.replace('Wassertemperatur ', '')])
+            SeeLinks.append([new_lake_link, new_lake_name, new_lake_temp])
+
+#print(SeeLinks)
+print("Total Lakes number after enriching is:" , len(SeeLinks))
+print(SeeLinks)
+
+#exit(1)
+
+#####################################
+# enriching part of the links (end)
+#####################################
+
+# no need to find temp any more all links are inreached already
+'''
+for i in tqdm(range(0,len(SeeLinks))):
     link = SeeLinks[i][0]  # link to the page of the specific lake
     page = requests.get(link)
     soup = BeautifulSoup(page.text, features="lxml")
@@ -47,6 +108,7 @@ for i in tqdm(range(0,len(SeeLinks)-1)):
             s += 1
 
 #print(SeeLinks) # List of Lists
+'''
 
 print(f'Checking all site Pages takes: {round(time.time()-start_time, 2)} sec')
 
@@ -85,6 +147,9 @@ print(f'LEn of List of Dics is {len(list_of_dicts)}')
 # Your list of dictionaries
 data = list_of_dicts
 
+# Serialize data into file:
+json.dump( data, open( "lake_data_json.json", 'w' ) )
+
 # Convert each dictionary into a list of values
 values_list = [{'link': d['link'], 'lake': d['lake'], 'temp': d['temp']} for d in data]
 
@@ -100,7 +165,7 @@ stmt = table.insert().values(values_list)
 if len(list_of_dicts) != 0:
     with engine.connect() as conn:
         conn.execute(stmt)
-        conn.commit()
+       # conn.commit() closing this for now (Autocommit?)
     conn.close()
 
 time_part2 = round(time.time()-timesqlstart, 2)   # Writing to the DB time in SEC
