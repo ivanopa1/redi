@@ -86,30 +86,6 @@ for i in tqdm(range(0,len(SeeLinks))):
 print("Total Lakes number after enriching is:" , len(SeeLinks))
 print(SeeLinks)
 
-#exit(1)
-
-#####################################
-# enriching part of the links (end)
-#####################################
-
-# no need to find temp any more all links are inreached already
-'''
-for i in tqdm(range(0,len(SeeLinks))):
-    link = SeeLinks[i][0]  # link to the page of the specific lake
-    page = requests.get(link)
-    soup = BeautifulSoup(page.text, features="lxml")
-    spans = soup.find_all('span')
-    s = 0
-    for span in spans:
-        match = re.search(pattern, str(span))
-        if match and s == 0:
-            temperature = match.group('temperature')
-            SeeLinks[i].append(temperature)
-            s += 1
-
-#print(SeeLinks) # List of Lists
-'''
-
 print(f'Checking all site Pages takes: {round(time.time()-start_time, 2)} sec')
 
 # Using PyMySQL as the MySQL driver
